@@ -111,7 +111,7 @@ public class CircularCloudLayouterTests
 
         foreach (var r1 in rectangles)
         foreach (var r2 in rectangles.Where(r2 => r2 != r1))
-            r1.IntersectsWith(r2).Should().BeTrue();
+            r1.IntersectsWith(r2).Should().BeFalse();
     }
     
     [Test]

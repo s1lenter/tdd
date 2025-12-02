@@ -45,7 +45,7 @@ public class VisualizationTests
         
         bool foundRed = IsRedColorAtPoint(bitmap, imageCenter);
         
-        foundRed.Should().BeFalse();
+        foundRed.Should().BeTrue();
     }
     
     [Test]
