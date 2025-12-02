@@ -4,31 +4,43 @@ using TagCloudVisualization;
 
 namespace TagCloudVisualizationTests;
 
-public class Tests
+[TestFixture]
+public class CircularCloudLayouterTests
 {
     private Point center;
+    private CircularCloudLayouter layouter;
+    private List<Rectangle> placedRectangles;
+    
     [SetUp]
     public void Setup()
     {
         center = new Point(0, 0);
+        layouter = new CircularCloudLayouter(center);
+        placedRectangles = new List<Rectangle>();
     }
-
+    
+    [TearDown]
+    public void TearDown()
+    {
+        if (TestContext.CurrentContext.Result.Outcome.Status == NUnit.Framework.Interfaces.TestStatus.Failed)
+            SaveFailedTestVisualization();
+        
+        placedRectangles.Clear();
+    }
+    
     [Test]
     public void CloudLayouterConstructor_ShouldCreateInstanceWithSpecificCenter()
     {
-        var layouter = new CircularCloudLayouter(center);
-        
         layouter.Should().NotBeNull();
     }
 
     [Test]
     public void PutNextRectangle_ShouldAddFirstRectangleInCenter()
     {
-        var layouter = new CircularCloudLayouter(center);
-        
         var rectangleSize = new Size(20,10);
         
         var rectangle = layouter.PutNextRectangle(rectangleSize);
+        placedRectangles.Add(rectangle);
         
         var rectanglePoint = new Point(center.X - rectangleSize.Width / 2, center.Y -  rectangleSize.Height / 2);
         
@@ -38,13 +50,14 @@ public class Tests
     [Test]
     public void PutNextRectangle_ShouldAddTwoRectangles()
     {
-        var layouter = new CircularCloudLayouter(center);
-        
         var firstRectangleSize = new Size(20,10);
         var secondRectangleSize = new Size(10,10);
         
         var rectangle = layouter.PutNextRectangle(firstRectangleSize);
+        placedRectangles.Add(rectangle);
+        
         var secondRectangle = layouter.PutNextRectangle(secondRectangleSize);
+        placedRectangles.Add(secondRectangle);
         
         rectangle.Should().NotBeNull();
         secondRectangle.Should().NotBeNull();
@@ -58,11 +71,13 @@ public class Tests
     [TestCase(-10, -10)]
     public void PutNextRectangle_WithNegativeParameters_ShouldThrowException(int width, int height)
     {
-        var layouter = new CircularCloudLayouter(center);
-        
         var rectangleSize = new Size(width,height);
         
-        var act = () => layouter.PutNextRectangle(rectangleSize);
+        var act = () => 
+        {
+            var rect = layouter.PutNextRectangle(rectangleSize);
+            placedRectangles.Add(rect);
+        };
         
         act.Should().Throw<ArgumentException>().WithMessage("The size of the rectangle must be a positive number.");
     }
@@ -70,12 +85,14 @@ public class Tests
     [Test]
     public void PutNextRectangle_TwoRectangles_ShouldNotIntersect()
     {
-        var layouter = new CircularCloudLayouter(center);
         var firstSize = new Size(30, 20);
         var secondSize = new Size(25, 15);
 
         var firstRect = layouter.PutNextRectangle(firstSize);
+        placedRectangles.Add(firstRect);
+        
         var secondRect = layouter.PutNextRectangle(secondSize);
+        placedRectangles.Add(secondRect);
     
         firstRect.IntersectsWith(secondRect).Should().BeFalse();
     }
@@ -83,24 +100,23 @@ public class Tests
     [Test]
     public void PutNextRectangle_ManyRectangles_ShouldNotIntersect()
     {
-        var layouter = new CircularCloudLayouter(center);
         var rectangles = new List<Rectangle>();
 
         for (int i = 1; i <= 10; i++)
         {
             var rect = layouter.PutNextRectangle(new Size(10 * i - i, 10 * i - i * 2));
             rectangles.Add(rect);
+            placedRectangles.Add(rect);
         }
 
         foreach (var r1 in rectangles)
-            foreach (var r2 in rectangles.Where(r2 => r2 != r1))
-                r1.IntersectsWith(r2).Should().BeFalse();
+        foreach (var r2 in rectangles.Where(r2 => r2 != r1))
+            r1.IntersectsWith(r2).Should().BeTrue();
     }
     
     [Test]
     public void PutNextRectangle_MultipleRectangles_ShouldFormCompactCloud()
     {
-        var layouter = new CircularCloudLayouter(center);
         var sizes = new[]
         {
             new Size(30, 20),
@@ -109,7 +125,12 @@ public class Tests
             new Size(15, 25)
         };
     
-        var rectangles = sizes.Select(size => layouter.PutNextRectangle(size)).ToList();
+        var rectangles = sizes.Select(size => 
+        {
+            var rect = layouter.PutNextRectangle(size);
+            placedRectangles.Add(rect);
+            return rect;
+        }).ToList();
         
         var bounds = GetBoundingRectangle(rectangles);
         var cloudCenter = new Point(bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 2);
@@ -121,12 +142,15 @@ public class Tests
     [Test]
     public void PutNextRectangle_ManyRectangles_ShouldFormCircularShape()
     {
-        var layouter = new CircularCloudLayouter(center);
         var size = new Size(20, 10);
     
         var rectangles = new List<Rectangle>();
         for (int i = 0; i < 20; i++)
-            rectangles.Add(layouter.PutNextRectangle(size));
+        {
+            var rect = layouter.PutNextRectangle(size);
+            rectangles.Add(rect);
+            placedRectangles.Add(rect);
+        }
     
         var bounds = GetBoundingRectangle(rectangles);
         var width = bounds.Width;
@@ -134,6 +158,50 @@ public class Tests
         
         var aspectRatio = (double)Math.Max(width, height) / Math.Min(width, height);
         aspectRatio.Should().BeLessThan(1.5);
+    }
+    
+    [Test]
+    public void PutNextRectangle_ShouldWorkWithLargeNumberOfRectangles()
+    {
+        var rectangles = new List<Rectangle>();
+        
+        for (int i = 0; i < 50; i++)
+        {
+            var size = new Size(10 + i % 10, 8 + i % 8);
+            var rect = layouter.PutNextRectangle(size);
+            rectangles.Add(rect);
+            placedRectangles.Add(rect);
+        }
+        
+        for (int i = 0; i < rectangles.Count; i++)
+        {
+            for (int j = i + 1; j < rectangles.Count; j++)
+            {
+                rectangles[i].IntersectsWith(rectangles[j]).Should().BeFalse(
+                    $"Rectangles {i} and {j} should not intersect");
+            }
+        }
+    }
+
+    private void SaveFailedTestVisualization()
+    {
+        var outputDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "FailedTests");
+        if (!Directory.Exists(outputDir))
+            Directory.CreateDirectory(outputDir);
+        
+        var testName = TestContext.CurrentContext.Test.Name;
+        var safeTestName = string.Join("_", testName.Split(Path.GetInvalidFileNameChars()));
+        var fileName = $"FailedTest_{safeTestName}.png";
+        var filePath = Path.Combine(outputDir, fileName);
+        
+        if (placedRectangles.Count > 0)
+        {
+            var visualizer = new TagCloudVisualizer();
+            
+            visualizer.CreateVisualization(placedRectangles, center, filePath);
+            
+            TestContext.WriteLine($"Tag cloud visualization saved to file: {filePath}");
+        }
     }
 
     private Rectangle GetBoundingRectangle(List<Rectangle> rectangles)
