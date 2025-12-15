@@ -1,18 +1,19 @@
+using System.Diagnostics;
 using System.Drawing;
 
 namespace TagCloudVisualization;
 
 public class CircularCloudLayouter
 {
-    private readonly Point _center;
-    private readonly List<Rectangle> _rectangles;
-    private readonly Spiral _spiral;
+    private readonly Point center;
+    private readonly List<Rectangle> rectangles;
+    private readonly Spiral spiral;
     
-    public CircularCloudLayouter(Point center)
+    public CircularCloudLayouter(Point center, double step = 1)
     {
-        _center = center;
-        _spiral = new Spiral(center);
-        _rectangles = [];
+        this.center = center;
+        spiral = new Spiral(center, step);
+        rectangles = [];
     }
 
     public Rectangle PutNextRectangle(Size rectangleSize)
@@ -20,10 +21,10 @@ public class CircularCloudLayouter
         if (rectangleSize.Width <= 0 || rectangleSize.Height <= 0)
             throw new ArgumentException("The size of the rectangle must be a positive number.");
         
-        if (_rectangles.Count == 0)
+        if (rectangles is [])
             return AddFirstRectangleInCenter(rectangleSize);
         
-        foreach (var point in _spiral.GetPoints())
+        foreach (var point in spiral.GetPoints())
         {
             var candidateRect = new Rectangle(point, rectangleSize);
 
@@ -31,22 +32,22 @@ public class CircularCloudLayouter
             {
                 var replacedRect = TryMoveToCenter(candidateRect);
                 
-                _rectangles.Add(replacedRect);
+                rectangles.Add(replacedRect);
                 return replacedRect;
             }
         }
         
-        throw new InvalidOperationException("Can't place a rectangle.");
+        throw new UnreachableException();
     }
     
-    private bool IntersectsWithAny(Rectangle rectangle) => _rectangles.Any(r => r.IntersectsWith(rectangle));
+    private bool IntersectsWithAny(Rectangle rectangle) => rectangles.Any(r => r.IntersectsWith(rectangle));
     
     private bool IsContainedInAny(Rectangle candidate)
     {
-        if (_rectangles.Any(existing => existing.Contains(candidate)))
+        if (rectangles.Any(existing => existing.Contains(candidate)))
             return true;
     
-        if (_rectangles.Any(existing => candidate.Contains(existing)))
+        if (rectangles.Any(existing => candidate.Contains(existing)))
             return true;
         
         return false;
@@ -55,19 +56,19 @@ public class CircularCloudLayouter
     private Rectangle AddFirstRectangleInCenter(Size rectangleSize)
     {
         var rectangleLocation = new Point(
-            _center.X - rectangleSize.Width / 2, 
-            _center.Y - rectangleSize.Height / 2
+            center.X - rectangleSize.Width / 2, 
+            center.Y - rectangleSize.Height / 2
         );
             
         var newRectangle = new Rectangle(rectangleLocation, rectangleSize);
-        _rectangles.Add(newRectangle);
+        rectangles.Add(newRectangle);
         return newRectangle;
     }
     
     private Rectangle TryMoveToCenter(Rectangle candidate)
     {
         var current = candidate;
-        var direction = new Point(_center.X - current.X, _center.Y - current.Y);
+        var direction = new Point(center.X - current.X, center.Y - current.Y);
     
         var stepX = direction.X == 0 ? 0 : direction.X / Math.Abs(direction.X);
         var stepY = direction.Y == 0 ? 0 : direction.Y / Math.Abs(direction.Y);
@@ -102,6 +103,7 @@ public class CircularCloudLayouter
     private double DistanceToCenter(Rectangle rect)
     {
         var rectCenter = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
-        return Math.Sqrt(Math.Pow(rectCenter.X - _center.X, 2) + Math.Pow(rectCenter.Y - _center.Y, 2));
+        return (rectCenter.X - center.X) * (rectCenter.X - center.X)
+                         + (rectCenter.Y - center.Y) * (rectCenter.Y - center.Y);
     }
 }

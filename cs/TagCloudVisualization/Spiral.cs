@@ -4,14 +4,14 @@ namespace TagCloudVisualization;
 
 public class Spiral
 {
-    private readonly Point _center;
+    private readonly Point center;
     private double angle;
-    private readonly double _step;
+    private readonly double step;
 
-    public Spiral(Point center, double step = 1)
+    public Spiral(Point center, double step)
     {
-        _center = center;
-        _step = step;
+        this.center = center;
+        this.step = step;
         angle = 0;
     }
 
@@ -19,13 +19,13 @@ public class Spiral
     {
         while (true)
         {
-            var radius = _step * angle;
-            var x = _center.X + (int)(radius * Math.Cos(angle));
-            var y = _center.Y + (int)(radius * Math.Sin(angle));
+            var radius = step * angle;
+            var x = center.X + (int)(radius * Math.Cos(angle));
+            var y = center.Y + (int)(radius * Math.Sin(angle));
             
             yield return new Point(x, y);
             
-            angle += _step;
+            angle += step;
         }
     }
 }
