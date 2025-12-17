@@ -10,7 +10,7 @@ public class CircularCloudLayouterTests
     private Point center;
     private CircularCloudLayouter layouter;
     private List<Rectangle> placedRectangles;
-    
+
     [SetUp]
     public void Setup()
     {
@@ -18,16 +18,16 @@ public class CircularCloudLayouterTests
         layouter = new CircularCloudLayouter(center);
         placedRectangles = new List<Rectangle>();
     }
-    
+
     [TearDown]
     public void TearDown()
     {
         if (TestContext.CurrentContext.Result.Outcome.Status == NUnit.Framework.Interfaces.TestStatus.Failed)
             SaveFailedTestVisualization();
-        
+
         placedRectangles.Clear();
     }
-    
+
     [Test]
     public void CloudLayouterConstructor_ShouldCreateInstanceWithSpecificCenter()
     {
@@ -37,57 +37,61 @@ public class CircularCloudLayouterTests
     [Test]
     public void PutNextRectangle_ShouldAddFirstRectangleInCenter()
     {
-        var rectangleSize = new Size(20,10);
+        var rectangleSize = new Size(20, 10);
         
         var rectangle = layouter.PutNextRectangle(rectangleSize);
         placedRectangles.Add(rectangle);
         
-        var rectanglePoint = new Point(center.X - rectangleSize.Width / 2, center.Y -  rectangleSize.Height / 2);
+        var expectedLocation = new Point(
+            center.X - rectangleSize.Width / 2, 
+            center.Y - rectangleSize.Height / 2);
         
-        rectangle.Location.Should().Be(rectanglePoint);
+        rectangle.Location.Should().Be(expectedLocation);
     }
-    
+
     [Test]
     public void PutNextRectangle_ShouldAddTwoRectangles()
     {
-        var firstRectangleSize = new Size(20,10);
-        var secondRectangleSize = new Size(10,10);
+        var firstRectangleSize = new Size(20, 10);
+        var secondRectangleSize = new Size(10, 10);
         
-        var rectangle = layouter.PutNextRectangle(firstRectangleSize);
-        placedRectangles.Add(rectangle);
+        var firstRectangle = layouter.PutNextRectangle(firstRectangleSize);
+        placedRectangles.Add(firstRectangle);
         
         var secondRectangle = layouter.PutNextRectangle(secondRectangleSize);
         placedRectangles.Add(secondRectangle);
         
-        rectangle.Should().NotBeNull();
-        secondRectangle.Should().NotBeNull();
+        firstRectangle.Size.Should().Be(firstRectangleSize);
+        secondRectangle.Size.Should().Be(secondRectangleSize);
+        firstRectangle.Should().NotBe(secondRectangle);
     }
-    
+
     [TestCase(-20, 10)]
     [TestCase(0, 0)]
     [TestCase(0, 1)]
     [TestCase(1, 0)]
     [TestCase(1, -10)]
     [TestCase(-10, -10)]
-    public void PutNextRectangle_WithNegativeParameters_ShouldThrowException(int width, int height)
+    public void PutNextRectangle_WithNonPositiveParameters_ShouldThrowArgumentException(int width, int height)
     {
-        var rectangleSize = new Size(width,height);
+        var rectangleSize = new Size(width, height);
         
-        var act = () => 
+        Action act = () => 
         {
             var rect = layouter.PutNextRectangle(rectangleSize);
             placedRectangles.Add(rect);
         };
         
-        act.Should().Throw<ArgumentException>().WithMessage("The size of the rectangle must be a positive number.");
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("The size of the rectangle must be a positive number.");
     }
-    
+
     [Test]
     public void PutNextRectangle_TwoRectangles_ShouldNotIntersect()
     {
         var firstSize = new Size(30, 20);
         var secondSize = new Size(25, 15);
-
+        
         var firstRect = layouter.PutNextRectangle(firstSize);
         placedRectangles.Add(firstRect);
         
@@ -96,24 +100,31 @@ public class CircularCloudLayouterTests
     
         firstRect.IntersectsWith(secondRect).Should().BeFalse();
     }
-    
+
     [Test]
     public void PutNextRectangle_ManyRectangles_ShouldNotIntersect()
     {
         var rectangles = new List<Rectangle>();
-
+        
         for (int i = 1; i <= 10; i++)
         {
-            var rect = layouter.PutNextRectangle(new Size(10 * i - i, 10 * i - i * 2));
+            var width = 10 + i * 2;
+            var height = 10 + i;
+            var rect = layouter.PutNextRectangle(new Size(width, height));
             rectangles.Add(rect);
             placedRectangles.Add(rect);
         }
 
-        foreach (var r1 in rectangles)
-        foreach (var r2 in rectangles.Where(r2 => r2 != r1))
-            r1.IntersectsWith(r2).Should().BeFalse();
+        for (int i = 0; i < rectangles.Count; i++)
+        {
+            for (int j = i + 1; j < rectangles.Count; j++)
+            {
+                rectangles[i].IntersectsWith(rectangles[j]).Should().BeFalse(
+                    $"Rectangles {i} and {j} should not intersect");
+            }
+        }
     }
-    
+
     [Test]
     public void PutNextRectangle_MultipleRectangles_ShouldFormCompactCloud()
     {
@@ -133,19 +144,24 @@ public class CircularCloudLayouterTests
         }).ToList();
         
         var bounds = GetBoundingRectangle(rectangles);
-        var cloudCenter = new Point(bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 2);
+        var cloudCenter = new Point(
+            bounds.Left + bounds.Width / 2, 
+            bounds.Top + bounds.Height / 2);
         var distanceFromActualCenter = Distance(cloudCenter, center);
     
-        distanceFromActualCenter.Should().BeLessThan(50);
+        distanceFromActualCenter.Should().BeLessThan(50, 
+            "Cloud should be compact around the center");
     }
     
     [Test]
     public void PutNextRectangle_ManyRectangles_ShouldFormCircularShape()
     {
+        var rectangleCount = 20;
+        var maxAspectRatio = 1.5;
         var size = new Size(20, 10);
     
         var rectangles = new List<Rectangle>();
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < rectangleCount; i++)
         {
             var rect = layouter.PutNextRectangle(size);
             rectangles.Add(rect);
@@ -157,22 +173,25 @@ public class CircularCloudLayouterTests
         var height = bounds.Height;
         
         var aspectRatio = (double)Math.Max(width, height) / Math.Min(width, height);
-        aspectRatio.Should().BeLessThan(1.5);
+        aspectRatio.Should().BeLessThan(maxAspectRatio,
+            $"Cloud with {rectangleCount} rectangles should be close to circular shape");
     }
-    
+
     [Test]
     public void PutNextRectangle_ShouldWorkWithLargeNumberOfRectangles()
     {
+        var rectangleCount = 50;
         var rectangles = new List<Rectangle>();
-        
-        for (int i = 0; i < 50; i++)
+
+        for (int i = 0; i < rectangleCount; i++)
         {
-            var size = new Size(10 + i % 10, 8 + i % 8);
-            var rect = layouter.PutNextRectangle(size);
+            var width = 10 + i;
+            var height = 8 + i * 2;
+            var rect = layouter.PutNextRectangle(new Size(width, height));
             rectangles.Add(rect);
             placedRectangles.Add(rect);
         }
-        
+
         for (int i = 0; i < rectangles.Count; i++)
         {
             for (int j = i + 1; j < rectangles.Count; j++)
@@ -185,23 +204,22 @@ public class CircularCloudLayouterTests
 
     private void SaveFailedTestVisualization()
     {
+        if (placedRectangles.Count == 0)
+            return;
+            
         var outputDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "FailedTests");
         if (!Directory.Exists(outputDir))
             Directory.CreateDirectory(outputDir);
-        
+
         var testName = TestContext.CurrentContext.Test.Name;
         var safeTestName = string.Join("_", testName.Split(Path.GetInvalidFileNameChars()));
         var fileName = $"FailedTest_{safeTestName}.png";
         var filePath = Path.Combine(outputDir, fileName);
-        
-        if (placedRectangles.Count > 0)
-        {
-            var visualizer = new TagCloudVisualizer();
-            
-            visualizer.CreateVisualization(placedRectangles, center, filePath);
-            
-            TestContext.WriteLine($"Tag cloud visualization saved to file: {filePath}");
-        }
+
+        var visualizer = new TagCloudVisualizer();
+        visualizer.CreateVisualization(placedRectangles, center, filePath);
+
+        TestContext.WriteLine($"Tag cloud visualization saved to file: {filePath}");
     }
 
     private Rectangle GetBoundingRectangle(List<Rectangle> rectangles)

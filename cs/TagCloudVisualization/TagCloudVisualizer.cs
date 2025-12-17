@@ -9,6 +9,8 @@ public class TagCloudVisualizer
     private readonly Color rectangleColor;
     private readonly Color centerColor;
     private readonly int padding;
+    
+    private const int MinImageSize = 400;
 
     public TagCloudVisualizer(
         Color backgroundColor = default,
@@ -56,7 +58,7 @@ public class TagCloudVisualizer
     private Size CalculateImageSize(List<Rectangle> rectangles, Point center)
     {
         if (rectangles.Count == 0)
-            return new Size(400, 400);
+            return new Size(MinImageSize, MinImageSize);
         
         int maxLeft = 0, maxRight = 0, maxTop = 0, maxBottom = 0;
         
@@ -72,7 +74,7 @@ public class TagCloudVisualizer
         var maxHeight = Math.Max(maxTop, maxBottom) * 2 + 2 * padding;
         
         var maxSide = Math.Max(maxWidth, maxHeight);
-        maxSide = Math.Max(maxSide, 400);
+        maxSide = Math.Max(maxSide, MinImageSize);
         
         return new Size(maxSide, maxSide);
     }
@@ -93,12 +95,12 @@ public class TagCloudVisualizer
         
         DrawRectangles(graphics, rectangles, offset);
         DrawCloudCenter(graphics, center, offset);
-        DrawInfo(graphics, rectangles.Count, center, offset);
+        DrawInfo(graphics, rectangles.Count);
     }
 
-    private void DrawRectangles(Graphics graphics, List<Rectangle> rectangles, Point offset)
+    private void DrawRectangles(Graphics graphics, List<Rectangle> rectangles, Point offset, float penWidth = 1.5f)
     {
-        using var pen = new Pen(rectangleColor, 1.5f);
+        using var pen = new Pen(rectangleColor, penWidth);
         using var brush = new SolidBrush(Color.FromArgb(40, rectangleColor));
         
         foreach (var rect in rectangles)
@@ -128,7 +130,7 @@ public class TagCloudVisualizer
             markerSize, markerSize);
     }
 
-    private void DrawInfo(Graphics graphics, int rectangleCount, Point center, Point offset)
+    private void DrawInfo(Graphics graphics, int rectangleCount)
     {
         using var font = new Font("Arial", 10);
         using var textBrush = new SolidBrush(Color.Black);
