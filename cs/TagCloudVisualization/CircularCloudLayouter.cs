@@ -83,8 +83,8 @@ public class CircularCloudLayouter
             else
                 break;
         
-            if (Math.Abs(current.X - candidate.X) > 100 || Math.Abs(current.Y - candidate.Y) > 100)
-                break;
+            // if (Math.Abs(current.X - candidate.X) > 100 || Math.Abs(current.Y - candidate.Y) > 100)
+            //     break;
         }
     
         return current;
